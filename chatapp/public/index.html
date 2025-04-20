@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat & Dating</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Navigation -->
+        <div class="flex justify-center mb-6">
+            <button onclick="showSection('chat')" class="mx-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">Chat</button>
+            <button onclick="showSection('dating')" class="mx-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded">Dating</button>
+        </div>
+
+        <!-- Username Section -->
+        <div id="username-container" class="max-w-md mx-auto bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <input type="text" id="username" placeholder="Enter your username" 
+                   class="w-full px-4 py-2 mb-4 text-black rounded focus:ring-2 focus:ring-blue-500">
+            <button onclick="joinChat()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Join Chat 🚀
+            </button>
+        </div>
+
+        <!-- Chat Section -->
+        <div id="chat-section" class="hidden">
+            <div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Main Chat -->
+                <div class="lg:col-span-2 bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h2 class="text-2xl font-bold text-center mb-4">🔥 Real-Time Chat</h2>
+                    <div id="chat-box" class="h-96 overflow-y-auto bg-gray-700 p-4 rounded mb-4"></div>
+                    <div class="flex">
+                        <input type="text" id="message" placeholder="Type a message..." 
+                               class="w-full px-4 py-2 text-black rounded-l focus:ring-2 focus:ring-blue-500">
+                        <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r">
+                            Send 🚀
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Video Chat -->
+                <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-center mb-4">📹 Video Chat</h2>
+                    <div id="video-container" class="space-y-4">
+                        <video id="localVideo" class="w-full bg-gray-900 rounded" autoplay muted playsinline></video>
+                        <video id="remoteVideo" class="w-full bg-gray-900 rounded hidden" autoplay playsinline></video>
+                        <div id="video-controls" class="flex justify-center space-x-2">
+                            <button onclick="toggleVideo()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded">
+                                🎥
+                            </button>
+                            <button onclick="toggleAudio()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded">
+                                🎤
+                            </button>
+                            <button onclick="endCall()" class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded hidden" id="end-call">
+                                ❌
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dating Section -->
+        <div id="dating-section" class="hidden">
+            <div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Profile Creation -->
+                <div class="lg:col-span-2 bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h2 class="text-2xl font-bold text-center mb-4">💝 Dating Profile</h2>
+                    <div id="profile-form" class="space-y-4">
+                        <div>
+                            <label class="block mb-1">Age</label>
+                            <input type="number" id="profile-age" min="18" max="100" 
+                                   class="w-full px-4 py-2 text-black rounded">
+                        </div>
+                        <div>
+                            <label class="block mb-1">Gender</label>
+                            <select id="profile-gender" class="w-full px-4 py-2 text-black rounded">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-1">Interests (comma-separated)</label>
+                            <input type="text" id="profile-interests" placeholder="hiking, movies, cooking..." 
+                                   class="w-full px-4 py-2 text-black rounded">
+                        </div>
+                        <button onclick="createProfile()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded">
+                            Create Profile 💝
+                        </button>
+                    </div>
+
+                    <!-- Matches -->
+                    <div id="matches-container" class="hidden mt-6">
+                        <h3 class="text-xl font-bold mb-4">Your Matches</h3>
+                        <div id="matches-list" class="space-y-4"></div>
+                    </div>
+                </div>
+
+                <!-- Private Chat -->
+                <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-center mb-4">Private Chat</h2>
+                    <div id="private-chat-container" class="space-y-4">
+                        <div id="private-chat-box" class="h-60 overflow-y-auto bg-gray-700 p-4 rounded"></div>
+                        <div class="flex">
+                            <input type="text" id="private-message" placeholder="Type a message..." 
+                                   class="w-full px-4 py-2 text-black rounded-l">
+                            <button onclick="sendPrivateMessage()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 rounded-r">
+                                Send
+                            </button>
+                        </div>
+                        <button onclick="reportUser()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded">
+                            Report User ⚠️
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="notificationSound">
+        <source src="notification.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const socket = io();
+        let chatActive = true;
+        let username = '';
+        let currentSection = 'chat';
+        let activePrivateChat = null;
+        let localStream = null;
+        let peer = null;
+
+        // Handle tab visibility
+        document.addEventListener("visibilitychange", () => {
+            chatActive = !document.hidden;
+            if (chatActive) document.title = "Real-Time Chat & Dating";
+        });
+
+        // Section navigation
+        function showSection(section) {
+            document.getElementById('chat-section').classList.add('hidden');
+            document.getElementById('dating-section').classList.add('hidden');
+            document.getElementById(`${section}-section`).classList.remove('hidden');
+            currentSection = section;
+        }
+
+        // Chat functionality
+        function joinChat() {
+            username = document.getElementById("username").value;
+            if (username) {
+                socket.emit("joinChat", { username });
+                document.getElementById("username-container").classList.add("hidden");
+                document.getElementById("chat-section").classList.remove("hidden");
+                initializeVideoChat();
+            }
+        }
+
+        function sendMessage() {
+            let message = document.getElementById("message").value;
+            if (message.trim() !== "") {
+                socket.emit("chatMessage", message);
+                document.getElementById("message").value = "";
+            }
+        }
+
+        // Dating functionality
+        function createProfile() {
+            const profile = {
+                age: document.getElementById('profile-age').value,
+                gender: document.getElementById('profile-gender').value,
+                interests: document.getElementById('profile-interests').value.split(',').map(i => i.trim())
+            };
+
+            socket.emit('createProfile', profile);
+            document.getElementById('profile-form').classList.add('hidden');
+            document.getElementById('matches-container').classList.remove('hidden');
+        }
+
+        function startPrivateChat(matchUsername) {
+            activePrivateChat = matchUsername;
+            document.getElementById('private-chat-box').innerHTML = '';
+        }
+
+        function sendPrivateMessage() {
+            if (!activePrivateChat) return;
+            
+            const message = document.getElementById('private-message').value;
+            if (message.trim() !== "") {
+                socket.emit('privateMessage', {
+                    to: activePrivateChat,
+                    message
+                });
+                document.getElementById('private-message').value = "";
+                
+                // Add message to chat box
+                const chatBox = document.getElementById('private-chat-box');
+                const msgElement = document.createElement('div');
+                msgElement.textContent = `You: ${message}`;
+                msgElement.classList.add('bg-gray-600', 'text-white', 'p-2', 'rounded', 'mb-2');
+                chatBox.appendChild(msgElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function reportUser() {
+            if (!activePrivateChat) return;
+            
+            const reason = prompt('Please provide a reason for reporting this user:');
+            if (reason) {
+                socket.emit('reportUser', {
+                    reportedUser: activePrivateChat,
+                    reason
+                });
+                alert('User has been reported. We will review the case.');
+            }
+        }
+
+        // Video chat functionality
+        async function initializeVideoChat() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+            } catch (err) {
+                console.error('Error accessing media devices:', err);
+            }
+        }
+
+        function startCall(targetUsername) {
+            if (!localStream) return;
+
+            peer = new SimplePeer({
+                initiator: true,
+                stream: localStream
+            });
+
+            setupPeerEvents(peer, targetUsername);
+        }
+
+        function setupPeerEvents(peer, targetUsername) {
+            peer.on('signal', data => {
+                socket.emit('offer', {
+                    to: targetUsername,
+                    offer: data
+                });
+            });
+
+            peer.on('stream', stream => {
+                document.getElementById('remoteVideo').srcObject = stream;
+                document.getElementById('remoteVideo').classList.remove('hidden');
+                document.getElementById('end-call').classList.remove('hidden');
+            });
+        }
+
+        function toggleVideo() {
+            if (localStream) {
+                localStream.getVideoTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                });
+            }
+        }
+
+        function toggleAudio() {
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                });
+            }
+        }
+
+        function endCall() {
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            document.getElementById('remoteVideo').classList.add('hidden');
+            document.getElementById('end-call').classList.add('hidden');
+        }
+
+        // Socket event handlers
+        socket.on("message", (msg) => {
+            let chatBox = document.getElementById("chat-box");
+            let newMsg = document.createElement("div");
+            newMsg.textContent = msg;
+            newMsg.classList.add("bg-gray-600", "text-white", "p-2", "rounded", "mb-2");
+            chatBox.appendChild(newMsg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            document.getElementById("notificationSound").play();
+            if (!chatActive) {
+                document.title = "New Message!";
+            }
+        });
+
+        socket.on('match', ({ username: matchedUsername, matchingInterests }) => {
+            const matchesList = document.getElementById('matches-list');
+            const matchElement = document.createElement('div');
+            matchElement.classList.add('bg-gray-700', 'p-4', 'rounded');
+            matchElement.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold">${matchedUsername}</h4>
+                        <p class="text-sm">Matching interests: ${matchingInterests.join(', ')}</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="startPrivateChat('${matchedUsername}')" 
+                                class="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded">
+                            Chat
+                        </button>
+                        <button onclick="startCall('${matchedUsername}')" 
+                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded">
+                            Video
+                        </button>
+                    </div>
+                </div>
+            `;
+            matchesList.appendChild(matchElement);
+        });
+
+        socket.on('privateMessage', ({ from, message }) => {
+            if (from === activePrivateChat) {
+                const chatBox = document.getElementById('private-chat-box');
+                const msgElement = document.createElement('div');
+                msgElement.textContent = `${from}: ${message}`;
+                msgElement.classList.add('bg-gray-600', 'text-white', 'p-2', 'rounded', 'mb-2');
+                chatBox.appendChild(msgElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        });
+
+        socket.on('offer', ({ from, offer }) => {
+            if (confirm(`Accept video call from ${from}?`)) {
+                peer = new SimplePeer({
+                    initiator: false,
+                    stream: localStream
+                });
+                setupPeerEvents(peer, from);
+                peer.signal(offer);
+            }
+        });
+
+        socket.on('answer', ({ from, answer }) => {
+            if (peer) peer.signal(answer);
+        });
+
+        socket.on('ice-candidate', ({ from, candidate }) => {
+            if (peer) peer.signal(candidate);
+        });
+
+        socket.on('banned', ({ duration }) => {
+            alert(`You have been temporarily banned for ${duration} due to multiple reports.`);
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
